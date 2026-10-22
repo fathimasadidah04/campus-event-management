@@ -1,0 +1,33 @@
+
+# Secrets and environment variables
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build output
+dist/
+**/dist/
+build/
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+# Local AI editor and agent files
+.agents/
+.claude/
+.windsurf/
+**/.agents/
+**/.claude/
+**/.windsurf/
