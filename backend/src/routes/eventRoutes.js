@@ -84,6 +84,41 @@ router.post("/", authenticateToken, async (req, res) => {
     }
 });
 
+// List events belonging to the logged-in organizer, including drafts
+// Admins can view all events.
+router.get("/my-events", authenticateToken, async (req, res) => {
+    try {
+        if (!["ORGANIZER", "ADMIN"].includes(req.user.role)) {
+            return res.status(403).json({
+                success: false,
+                message:
+                    "Only organizers and admins can view organizer events",
+            });
+        }
+
+        const events = await prisma.event.findMany({
+            where:
+                req.user.role === "ADMIN"
+                    ? {}
+                    : { organizerId: req.user.userId },
+            orderBy: { createdAt: "desc" },
+        });
+
+        return res.json({
+            success: true,
+            count: events.length,
+            events,
+        });
+    } catch (error) {
+        console.error("Fetching organizer events failed:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to fetch your events",
+        });
+    }
+});
+
 // Publish an event — only its organizer or an admin can publish it
 router.patch("/:id/publish", authenticateToken, async (req, res) => {
     try {
@@ -167,18 +202,20 @@ router.post("/:id/register", authenticateToken, async (req, res) => {
         if (event.startAt <= new Date()) {
             return res.status(400).json({
                 success: false,
-                message: "Registration is closed because the event has started",
+                message:
+                    "Registration is closed because the event has started",
             });
         }
 
-        const existingRegistration = await prisma.registration.findUnique({
-            where: {
-                userId_eventId: {
-                    userId,
-                    eventId,
+        const existingRegistration =
+            await prisma.registration.findUnique({
+                where: {
+                    userId_eventId: {
+                        userId,
+                        eventId,
+                    },
                 },
-            },
-        });
+            });
 
         if (existingRegistration?.status === "CONFIRMED") {
             return res.status(409).json({
@@ -230,7 +267,6 @@ router.post("/:id/register", authenticateToken, async (req, res) => {
             registration,
         });
     } catch (error) {
-        // The composite unique constraint prevents duplicate records.
         if (error.code === "P2002") {
             return res.status(409).json({
                 success: false,
