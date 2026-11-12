@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -43,6 +42,7 @@ model Event {
   description   String
   category      String
   venue         String
+  imageUrl      String?
   startAt       DateTime
   endAt         DateTime
   capacity      Int
@@ -67,7 +67,7 @@ model Registration {
   updatedAt DateTime           @updatedAt
 
   user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  event     Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event     Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@unique([userId, eventId])
   @@index([eventId, status])

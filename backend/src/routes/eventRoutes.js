@@ -2,87 +2,103 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
 import { authenticateToken } from "../middleware/authMiddleware.js";
+import upload from "../lib/upload.js";
+import cloudinaryUpload from "../lib/cloudinaryUpload.js";
 
 const router = Router();
 
 // Create an event — organizers and admins only
-router.post("/", authenticateToken, async (req, res) => {
-    try {
-        if (!["ORGANIZER", "ADMIN"].includes(req.user.role)) {
-            return res.status(403).json({
-                success: false,
-                message: "Only organizers and admins can create events",
-            });
-        }
+router.post(
+    "/",
+    authenticateToken,
+    upload.single("image"),
+    async (req, res) => {
+        try {
+            if (!["ORGANIZER", "ADMIN"].includes(req.user.role)) {
+                return res.status(403).json({
+                    success: false,
+                    message: "Only organizers and admins can create events",
+                });
+            }
 
-        const {
-            title,
-            description,
-            category,
-            venue,
-            startAt,
-            endAt,
-            capacity,
-        } = req.body;
-
-        if (
-            typeof title !== "string" || !title.trim() ||
-            typeof description !== "string" || !description.trim() ||
-            typeof category !== "string" || !category.trim() ||
-            typeof venue !== "string" || !venue.trim() ||
-            !startAt || !endAt ||
-            !Number.isInteger(capacity) || capacity < 1
-        ) {
-            return res.status(400).json({
-                success: false,
-                message:
-                    "Provide valid title, description, category, venue, dates, and positive integer capacity",
-            });
-        }
-
-        const startDate = new Date(startAt);
-        const endDate = new Date(endAt);
-
-        if (
-            Number.isNaN(startDate.getTime()) ||
-            Number.isNaN(endDate.getTime()) ||
-            endDate <= startDate
-        ) {
-            return res.status(400).json({
-                success: false,
-                message:
-                    "The end date must be later than the start date, and both dates must be valid",
-            });
-        }
-
-        const event = await prisma.event.create({
-            data: {
-                title: title.trim(),
-                description: description.trim(),
-                category: category.trim(),
-                venue: venue.trim(),
-                startAt: startDate,
-                endAt: endDate,
+            const {
+                title,
+                description,
+                category,
+                venue,
+                startAt,
+                endAt,
                 capacity,
-                status: "DRAFT",
-                organizerId: req.user.userId,
-            },
-        });
+            } = req.body;
 
-        return res.status(201).json({
-            success: true,
-            message: "Event created successfully as a draft",
-            event,
-        });
-    } catch (error) {
-        console.error("Event creation failed:", error);
+            const capacityNumber = Number(capacity);
 
-        return res.status(500).json({
-            success: false,
-            message: "Unable to create event",
-        });
+            if (
+                typeof title !== "string" || !title.trim() ||
+                typeof description !== "string" || !description.trim() ||
+                typeof category !== "string" || !category.trim() ||
+                typeof venue !== "string" || !venue.trim() ||
+                !startAt || !endAt ||
+                !Number.isInteger(capacityNumber) ||
+                capacityNumber < 1
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Provide valid event details and positive integer capacity",
+                });
+            }
+
+            const startDate = new Date(startAt);
+            const endDate = new Date(endAt);
+
+            if (
+                Number.isNaN(startDate.getTime()) ||
+                Number.isNaN(endDate.getTime()) ||
+                endDate <= startDate
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    message: "The end date must be later than the start date, and both dates must be valid",
+                });
+            }
+
+            let imageUrl = null;
+
+            if (req.file) {
+                const uploadedImage = await cloudinaryUpload(req.file.buffer);
+                imageUrl = uploadedImage.imageUrl;
+            }
+
+            const event = await prisma.event.create({
+                data: {
+                    title: title.trim(),
+                    description: description.trim(),
+                    category: category.trim(),
+                    venue: venue.trim(),
+                    imageUrl,
+                    startAt: startDate,
+                    endAt: endDate,
+                    capacity: capacityNumber,
+                    status: "DRAFT",
+                    organizerId: req.user.userId,
+                },
+            });
+
+            return res.status(201).json({
+                success: true,
+                message: "Event created successfully as a draft",
+                event,
+            });
+        } catch (error) {
+            console.error("Event creation failed:", error);
+
+            return res.status(500).json({
+                success: false,
+                message: "Unable to create event",
+            });
+        }
     }
-});
+);
 
 // List events belonging to the logged-in organizer, including drafts
 // Admins can view all events.
@@ -91,8 +107,7 @@ router.get("/my-events", authenticateToken, async (req, res) => {
         if (!["ORGANIZER", "ADMIN"].includes(req.user.role)) {
             return res.status(403).json({
                 success: false,
-                message:
-                    "Only organizers and admins can view organizer events",
+                message: "Only organizers and admins can view organizer events",
             });
         }
 
@@ -202,8 +217,7 @@ router.post("/:id/register", authenticateToken, async (req, res) => {
         if (event.startAt <= new Date()) {
             return res.status(400).json({
                 success: false,
-                message:
-                    "Registration is closed because the event has started",
+                message: "Registration is closed because the event has started",
             });
         }
 
