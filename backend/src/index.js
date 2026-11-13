@@ -38,6 +38,13 @@ app.get("/", (req, res) => {
     });
 });
 
+app.get("/health", (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: "OK",
+    });
+});
+
 // API routes
 app.use("/api/auth", authRoutes);
 app.use("/api/events", eventRoutes);
