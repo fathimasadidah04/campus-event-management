@@ -13,15 +13,21 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// CORS configuration for the local frontend
+// CORS — allow local dev + production Vercel frontend
 const allowedOrigins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-];
+    process.env.CORS_ORIGIN,
+].filter(Boolean);
 
 app.use(
     cors({
-        origin: allowedOrigins,
+        origin: (origin, callback) => {
+            // Allow requests with no origin (e.g. curl, Render health checks)
+            if (!origin) return callback(null, true);
+            if (allowedOrigins.includes(origin)) return callback(null, true);
+            callback(new Error(`CORS: origin not allowed — ${origin}`));
+        },
         methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allowedHeaders: ["Content-Type", "Authorization"],
     })
